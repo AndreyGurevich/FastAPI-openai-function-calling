@@ -2,6 +2,8 @@ import asyncio
 import json
 
 from openai import AssistantEventHandler, OpenAI
+from openai.types.beta.threads import Message, MessageDelta
+from openai.types.beta.threads.runs import RunStep, RunStepDelta
 from typing_extensions import override
 
 from utils.config import DONE_MESSAGE, OPENAI_API_KEY
@@ -58,8 +60,33 @@ class CustomEventHandler(AssistantEventHandler):
 
     @override
     def on_end(self):
-        print('--- the end ---')
-        asyncio.run_coroutine_threadsafe(self.queue.put(None), self.loop)
+        print(f'--- the end --- {self.current_run.required_action}')
+        if self.current_run.required_action is None:
+            asyncio.run_coroutine_threadsafe(self.queue.put(None), self.loop)
+
+    @override
+    def on_run_step_delta(self, delta: RunStepDelta, snapshot: RunStep) -> None:
+        print('on_run_step_delta')
+        print(delta)
+
+    @override
+    def on_run_step_done(self, run_step: RunStep) -> None:
+        print('on_run_step_done')
+        print(run_step)
+
+    @override
+    def on_message_created(self, message: Message) -> None:
+        """Callback that is fired when a message is created"""
+        print('on_message_created')
+        print(message)
+
+    @override
+    def on_message_delta(self, delta: MessageDelta, snapshot: Message) -> None:
+        # Callback that is fired whenever a message delta is returned from the API
+        asyncio.run_coroutine_threadsafe(self.queue.put(delta.content[0].text.value), self.loop)
+        print('on_message_delta')
+        print(delta)
+        # print(snapshot)
 
     @override
     def on_tool_call_created(self, tool_call):
@@ -92,6 +119,14 @@ class CustomEventHandler(AssistantEventHandler):
                 for output in delta.code_interpreter.outputs:
                     if output.type == "logs":
                         asyncio.run_coroutine_threadsafe(self.queue.put(f"{output.logs}"), self.loop)
+        if delta.type == 'text':
+            if delta.code_interpreter.input:
+                asyncio.run_coroutine_threadsafe(self.queue.put(delta.code_interpreter.input), self.loop)
+            if delta.code_interpreter.outputs:
+                asyncio.run_coroutine_threadsafe(self.queue.put("\non_tool_call_delta output >"), self.loop)
+                # for output in delta.code_interpreter.outputs:
+                #     if output.type == "logs":
+                #         asyncio.run_coroutine_threadsafe(self.queue.put(f"{output.logs}"), self.loop)
         pass
 
     def handle_requires_action(self, data):
@@ -123,13 +158,15 @@ class CustomEventHandler(AssistantEventHandler):
         ) as stream:
             for text in stream.text_deltas:
                 logger.info(f"Stream text delta: {text}")
+                asyncio.run_coroutine_threadsafe(self.queue.put(f"{text}"), self.loop)
                 print(text, end="", flush=True)
             print()
         logger.info("submit_tool_outputs_stream call passed")
         await self.queue.put("Some strange output")
         async for chunk in get_openai_response_stream(data.thread_id, self.loop):
             logger.info(f"async chunk: {chunk}")
-            await self.queue.put(chunk)
+            # await self.queue.put(chunk)
+            asyncio.run_coroutine_threadsafe(self.queue.put(f"{chunk}"), self.loop)
 
 
 openai_client = OpenAI()

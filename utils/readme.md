@@ -44,3 +44,7 @@ curl -X 'POST' \
   "message": "What weather is it now in New York?",
   "just_one_more_field": "test"
 }'
+
+## The problem
+
+I expect to get a response "The weather in New York is ....", but I get only system outputs and stream from gpt to FastAPI is closed  because one of chunks in `get_openai_response_stream` is None
