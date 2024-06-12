@@ -61,8 +61,8 @@ class CustomEventHandler(AssistantEventHandler):
     @override
     def on_end(self):
         print(f'--- the end --- {self.current_run.required_action}')
-        if self.current_run.required_action is None:
-            asyncio.run_coroutine_threadsafe(self.queue.put(None), self.loop)
+        # if self.current_run.required_action is None:
+        asyncio.run_coroutine_threadsafe(self.queue.put(None), self.loop)
 
     @override
     def on_run_step_delta(self, delta: RunStepDelta, snapshot: RunStep) -> None:
