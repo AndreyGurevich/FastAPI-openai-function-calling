@@ -16,7 +16,7 @@ app = FastAPI()
 
 
 class ChatMessage(BaseModel):
-    message: str = Field(..., example="test")
+    message: str = Field(..., example="What weather is it now in San Francisco?")
     just_one_more_field: str = Field(..., example="test")
 
 
